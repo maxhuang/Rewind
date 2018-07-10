@@ -1,0 +1,528 @@
+<!-- vim: set tabstop=2 softtabstop=0 expandtab shiftwidth=2 smarttab: -->
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <title>Rewind</title>
+  <meta charset="utf-8">
+  <link rel="shortcut icon" href="/logo.png">
+  <link rel="stylesheet" href="https://bootswatch.com/4/cosmo/bootstrap.min.css">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+</head>
+
+<style media="screen">
+h1 {
+  text-align: center;
+}
+
+.search-bar-button:hover, .post-menu:hover {
+  cursor: pointer;
+}
+
+.post-menu {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: 10px;
+}
+
+#facebook-login-button {
+  margin-right: 10px;
+}
+
+#facebook-logout-button {
+  display: none;
+  margin-right: 10px;
+}
+
+#custom-welcome-message {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+#welcome-message {
+  padding: 3rem 1.5rem;
+  text-align: center;
+}
+
+#pre-login-container, #post-login-container {
+  display: none;
+  animation: slide-up 0.4s ease;
+}
+
+#search-results-container  {
+  display: none;
+  animation: slide-up 0.4s ease;
+}
+
+/* Intersting solution to centering horizontally.
+   https://css-tricks.com/forums/topic/horizontal-centering-of-an-absolute-element/
+*/
+#page-loader-container {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+#search-loader-container {
+  display: none;
+  text-align: center;
+  margin: 3rem;
+}
+
+@keyframes slide-up {
+    0% {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* This is responsible for the animation goodness
+   modified code from:
+   https://codepen.io/wabeshew/pen/XdbBdM */
+.bouncing-ball {
+  position: relative;
+  display: inline-block;
+  height: 37px;
+  width: 15px;
+}
+
+.bouncing-ball:before {
+  position: relative;
+  display: inline-block;
+  height: 37px;
+  width: 15px;
+  position: absolute;
+  content: '';
+  display: block;
+  top: 0;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background-color: #2780E3;
+  transform-origin: 50%;
+  animation: bounce 500ms alternate infinite ease;
+}
+
+@keyframes bounce {
+  0% {
+    top: 30px;
+    height: 5px;
+    border-radius: 60px 60px 20px 20px;
+    transform: scaleX(2);
+  }
+  35% {
+    height: 15px;
+    border-radius: 50%;
+    transform: scaleX(1);
+  }
+  100% {
+    top: 0;
+  }
+}
+</style>
+
+<body>
+  <script>
+    // Facebook Javascript SDK
+    window.fbAsyncInit = function() {
+      FB.init({
+        appId      : 'REPLACE_WITH_YOUR_OWN_APP_ID',
+        cookie     : true,
+        xfbml      : true,
+        version    : 'v3.0'
+      });
+      
+      FB.AppEvents.logPageView();
+      FB.getLoginStatus(function(response) {
+          statusChangeCallback(response);
+      });
+    };
+
+    (function(d, s, id) {
+       var js, fjs = d.getElementsByTagName(s)[0];
+       if (d.getElementById(id)) {return;}
+       js = d.createElement(s); js.id = id;
+       js.src = "https://connect.facebook.net/en_US/sdk.js";
+       fjs.parentNode.insertBefore(js, fjs);
+     }(document, 'script', 'facebook-jssdk'));
+
+    // Check if logged in or not and execute actions based on that
+    function statusChangeCallback(response) {
+      if (response.status === 'connected') {
+        console.log('Logged in and authorised');
+        showPostLoginContainer(true); // Clear welcome + FB login button
+      } else {
+        console.log('Not logged in');
+        showPostLoginContainer(false);
+      }
+      // Reset previous changes if any
+      resetWebApp();
+    }
+
+    // Query FB api and passes on response to check if logged in or not ditto
+    function checkLoginState() {
+      FB.getLoginStatus(function(response) {
+        statusChangeCallback(response);
+      });
+    }
+
+    function logout() {
+      FB.logout(function(response) {
+        showPostLoginContainer(false);
+        console.log('Logged out');
+      });
+    }
+
+    // Hides or shows content based on whether or not user is logged in
+    function showPostLoginContainer(isLoggedIn) {
+        document.getElementById('page-loader-container').style.display = 'block';
+      if (isLoggedIn) {
+        document.getElementById('pre-login-container').style.display = 'none';
+        document.getElementById('facebook-login-button').style.display = 'none';
+        document.getElementById('facebook-logout-button').style.display = 'inline-block';
+        // Sets up the details for post login window
+        setDetailsPostLogin();
+      } else {
+        document.getElementById('page-loader-container').style.display = 'none';
+        document.getElementById('pre-login-container').style.display = 'block';
+        document.getElementById('post-login-container').style.display = 'none';
+        document.getElementById('facebook-login-button').style.display = 'inline-block';
+        document.getElementById('facebook-logout-button').style.display = 'none';
+      }
+    }
+
+    // Runs after login and populates details for the post login screen
+    function setDetailsPostLogin() {
+      FB.api('/me?fields=name', function(response) {
+        if (response && !response.error) {
+          // Set custom welcome message
+          setPostLoginWelcomeMessage(response);
+        }
+      });
+    }
+
+    // Set a custom welcome message
+    function setPostLoginWelcomeMessage(user) {
+      let welcome_message = `
+        <h1>Welcome, ${user.name}.</h1>
+      `;
+      document.getElementById("custom-welcome-message").innerHTML = welcome_message;
+
+      // We're done so hide loader and show container
+        document.getElementById('post-login-container').style.display = 'block';
+        document.getElementById('page-loader-container').style.display = 'none';
+    }
+
+    // Reset the inputs and search areas
+    function resetWebApp() {
+      // Clear previous results, if any
+      document.getElementById("search-results-container").innerHTML = "";
+
+      // Clear inputs
+      document.getElementById("search-keywords-bar").value = "";
+      document.getElementById("cdr-min-picker").value = "";
+      document.getElementById("cdr-max-picker").value = "";
+
+      // Collapse the advanced options
+      document.getElementById("collapseAdvanceSearch").classList.remove('show');
+
+      console.log('Web app reset');
+    }
+    
+    // Sanitise user input string so it is able to be used with regex
+    // Code from Mozilla Developer Network
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+    }
+
+    // Checks string_to_check for words_to_match
+    function isKeywordPresent(string_to_check, words_to_match) {
+      // Check if there are words_to_match within string_to_check
+      for (let word of words_to_match) {
+        // Create a new Regex object which matches the word adding case
+        // insensitive flag
+        let word_regex = new RegExp(`${word}`, 'i');
+        if (word_regex.test(string_to_check)) {
+          return true;
+        }
+      }
+      // Nothing matched so return false
+      return false;
+    }
+
+    // Begin search through user posts. This function does too much!
+    // It should be broken up into different functions!
+    function executeSearch() {
+      console.log('Search started');
+
+      // Clear previous results, if any
+      document.getElementById("search-results-container").innerHTML = "";
+      // Hide the search results container
+      document.getElementById("search-results-container").style.display = "none";
+      // Show the search loader
+      document.getElementById("search-loader-container").style.display = "block";
+
+      // Get search parameters
+      let search_keywords = document.getElementById("search-keywords-bar").value;
+      let search_cdr_min = document.getElementById("cdr-min-picker").value;
+      let search_cdr_max = document.getElementById("cdr-max-picker").value;
+
+      // Process search_keywords
+      if (search_keywords) {
+        var search_keyword_list = escapeRegExp(search_keywords).split(' ');
+      }
+
+      // Build query url
+      query_url = '/me/feed?fields=privacy,message,created_time';
+
+      // Starting with date
+      if (search_cdr_min) {
+        // Get date from date picker which the function assumes to be UTC
+        // but user sets it thinking it is actually localtime.
+        search_cdr_min = new Date(search_cdr_min);
+        // Add localtime offset to date to make it UTC --> Localtime
+        // Final format: date & time (00:00:00:0000)
+        search_cdr_min = new Date(search_cdr_min.getTime() +
+          search_cdr_min.getTimezoneOffset() * 60 * 1000);
+
+        query_url += `&since=${search_cdr_min.toUTCString()}`;
+      }
+      if (search_cdr_max) {
+        // Get date from date picker which the function assumes to be UTC
+        // but user wants in localtime
+        search_cdr_max = new Date(search_cdr_max);
+        // Add localtime offset to date to make it UTC --> Localtime
+        // Final format: date & time (23:59:59:9999)
+        day_in_milliseconds = 86400000;
+        search_cdr_max = new Date(search_cdr_max.getTime() + 
+          search_cdr_max.getTimezoneOffset() * 60 * 1000 +
+          day_in_milliseconds - 1);
+
+        query_url += `&until=${search_cdr_max.toUTCString()}`;
+      }
+
+      // Finished building query, submitting and searching now
+      let number_of_results = 1;
+
+      var getPosts = function (response) {
+        if (response && !response.error) {
+          for (let post of response.data) {
+            // Check if keyword is present. Order of arguments is important!
+            // We can save an if statement if we order it like this.
+            if (!search_keywords || isKeywordPresent(post.message, search_keyword_list)) {
+              // Add the found post to the results
+              addSearchResult(post, number_of_results);
+              number_of_results += 1;
+            }
+          }
+        }
+
+        // Check for pagination end and fail gracefully!
+        try {
+          if (typeof response.paging.next !== 'undefined') {
+            // Not the end, next post please!
+            FB.api(response.paging.next, getPosts);
+          }
+        }
+        catch (e) {
+          // End of paging
+          console.log('Reached end of paging');
+          // Show results
+          document.getElementById("search-results-container").style.display = "block";
+          // Hide search loader
+          document.getElementById("search-loader-container").style.display = "none";
+        }
+      }
+
+      // Do the initial call which starts the pagination
+      FB.api(query_url, getPosts);
+    }
+
+    // Add search result to #search-results-container
+    function addSearchResult(post_data, post_index) {
+      let search_results_container = document.getElementById("search-results-container");
+
+      // Get post date
+      let post_date = new Date(post_data.created_time);
+      let post_date_format = { 
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric'
+      };
+
+      formatted_post_content = `
+        <!-- Add card title header and body -->
+        <div class="card mb-3">
+          <div class="card-body" style="position: relative;">
+            <h4 class="card-title">Matching post #${post_index}</h4>
+            <div class="post-menu">
+              <div class="post-menu">
+
+                <i style="width: 1.25rem;" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" class="material-icons dropdown-toggle"></i>
+                <div class="dropdown-menu dropdown-menu-right">
+                  <button class="dropdown-item" type="button" onclick="window.open('https://www.facebook.com/${post_data.id}');">Open post on Facebook</button>
+                </div>
+
+              </div>
+            </div>
+            <!-- Replacing all newlines with </br> so that newlines are preserved -->
+            <div class="card-text">
+              ${post_data.message.replace(/\r\n|\r|\n/g, '<br>')}
+            </div>
+            <!-- Add card footer -->
+          </div>
+          <div class="card-footer text-muted">
+            <span class="badge badge-pill badge-primary">
+              ${post_date.toLocaleDateString('en', post_date_format)}
+            </span>
+            <span class="badge badge-pill badge-primary">
+              ${post_data.privacy.description}
+            </span>
+          </div>
+        </div>
+      `;
+
+      // Append if result is there, else add
+      if (search_results_container.innerHTML) {
+        search_results_container.innerHTML = search_results_container.innerHTML + formatted_post_content;
+      } else {
+        search_results_container.innerHTML = formatted_post_content;
+      }
+    }
+
+  </script>
+
+  <!-- Basic template from bootstrap -->
+  <!-- https://getbootstrap.com/docs/4.1/examples/starter-template/ -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <span class="navbar-brand">Rewind</span>
+    <span class="navbar-nav mr-auto"></span>
+
+    <ul class="navbar-nav navbar-right">
+      <!-- Insert logout button -->
+      <li>
+        <button type="button" id="facebook-logout-button" class="btn btn-primary btn-sm" onclick="logout()">Logout</button>
+      </li>
+
+      <!-- Insert FB login button -->
+      <fb:login-button 
+        id="facebook-login-button"
+        scope="public_profile, user_posts, user_status"
+        onlogin="checkLoginState();">
+      </fb:login-button>
+      
+    </ul>
+  </nav>
+
+  <!-- Contains the loader -->
+  <div id="page-loader-container">
+    <div id="bouncing-ball-loader">
+      <!-- We can put stuff in here. Let's bounce! Ult. -->
+      <div class="bouncing-ball"></div>
+      <h3 style="display: inline-block; margin-left: 0.5em;">LOADING</h3>
+    </div>
+  </div>
+
+  <!-- Create div for centering contents -->
+  <div class="container">
+
+    <div id="pre-login-container">
+      <div id="welcome-message">
+        <!-- Give it a suitable title -->
+        <h1>Welcome to Rewind!</h1>
+        <h6 class="lead">The app that helps you remove <em>those</em> Facebook posts</h6>
+        <h3><br><br><p>Log in to begin!</p></h3>
+      </div>
+    </div>
+
+    <div id="post-login-container">
+      <div id="custom-welcome-message"></div>
+      <!-- Add the search options such as date picker and keywords -->
+      <div id="search-widgets-container">
+
+        <!-- Search bar -->
+          <div class="form-group">
+            <div class="input-group mb-3">
+              <input id="search-keywords-bar" class="form-control" aria-label="Enter keywords" placeholder="Enter keywords" type="text">
+              <div class="input-group-append">
+
+                <span class="input-group-text search-bar-button">
+                  <span style="height: 1.6em;" data-toggle="collapse" href="#collapseAdvanceSearch" role="button" aria-expanded="false" aria-controls="collapseAdvanceSearch">
+                    <i class="material-icons">&#xe8b8;</i>
+                  </span>
+                </span>
+
+                <span class="input-group-text search-bar-button" onclick="executeSearch()">
+                  <i class="material-icons">&#xe8b6;</i>
+                </span>
+
+              </div>
+            </div>
+          </div>
+
+        <div class="collapse mb-3" id="collapseAdvanceSearch">
+          <div class="card card-body">
+            <h3>Advanced search options</h3>
+            <h5>Custom date range</h5>
+            <label for="cdr-min-picker">From</label>
+            <input type="date" id="cdr-min-picker" class="form-control">
+            <label for="cdr-max-picker">To</label>
+            <input type="date" id="cdr-max-picker" class="form-control">
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Contains the search loader -->
+      <div id="search-loader-container">
+        <!-- We can put stuff in here. Let's bounce! Ult. -->
+        <div class="bouncing-ball"></div>
+        <h3 style="display: inline-block; margin-left: 0.5em;">SEARCHING</h3>
+      </div>
+
+      <div id="search-results-container"></div>
+    </div>
+  </div>
+
+  <script>
+    // Start running scripts only after DOM has loaded
+    document.addEventListener("DOMContentLoaded", function(event) {
+      console.log("DOM fully loaded and parsed");
+
+      // Set min date for cdr-max-picker dynamically
+      document.getElementById("cdr-min-picker").onchange = function () {
+          let cdr_picker = document.getElementById("cdr-max-picker");
+          cdr_picker.setAttribute("min", this.value);
+      }
+  
+      // Set max date for cdr-min-picker dynamically
+      document.getElementById("cdr-max-picker").onchange = function () {
+          let cdr_picker = document.getElementById("cdr-min-picker");
+          cdr_picker.setAttribute("max", this.value);
+      }
+  
+      // Hook keyboard input in search bar to check for enter keypresses
+      var search_bar_to_hook = document.getElementById("search-keywords-bar");
+      search_bar_to_hook.addEventListener("keyup", function(event) {
+          // Cancel the default action, if needed
+          event.preventDefault();
+          // Keycode 13 is ENTER
+          if (event.keyCode === 13) {
+            executeSearch();
+          }
+      });
+    });
+  </script>
+
+  <!-- Bootstrap JS libraries -->
+  <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha384-q8i/X+965DzO0rT7abK41JStQIAqVgRVzpbzo5smXKp4YfRvH+8abtTE1Pi6jizo" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js" integrity="sha384-smHYKdLADwkXOn1EmN1qk/HfnUcbVRZyYmZ4qpPea6sjB/pTJ0euyQp0Mk8ck+5T" crossorigin="anonymous"></script>
+
+</body>
+</html>
