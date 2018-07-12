@@ -6,7 +6,7 @@ README file for Rewind
 2. [Features](#features)
 3. [Screenshots](#screenshots)
 4. [Requirements](#requirements)
-5. [Installation](#installation)
+5. [Setup](#setup)
 
 # Introduction
 
